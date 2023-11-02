@@ -1,0 +1,9 @@
+html, body {
+  min-height: 100vh;
+  background-color: #f9f9f9;
+}
+
+body {
+  font-size: 14px;
+  color: #333;
+}
