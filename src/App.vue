@@ -29,7 +29,7 @@ onMounted(() => {
     75,
     canvasInfo.width / canvasInfo.height,
   )
-  camera.position.set(0, 2, -3)
+  camera.position.set(0, 3, -5)
 
   const scene = new THREE.Scene()
   const axesHelper = new THREE.AxesHelper(5)
@@ -49,16 +49,18 @@ onMounted(() => {
 
   const controls = new OrbitControls(camera, canvasRef.value)
   controls.enableDamping = true
+  controls.maxPolarAngle = Math.PI / 2
+  controls.minDistance = 3
+  controls.maxDistance = 8
 
   const fbxLoader = new FBXLoader()
   fbxLoader.load('/modals/girl.fbx', async (fbxData) => {
     player = fbxData
+    // 缩放100倍
     player.scale.set(0.01, 0.01, 0.01)
     scene.add(player)
+    controls.target = player.position
 
-    console.log('camera', camera.position)
-    console.log('player', player.position)
-    
     await loadAnimations()
     animationMixer = startAnimationOfName(player, animations, 'idle')
   })
@@ -71,44 +73,27 @@ onMounted(() => {
   }
   window.addEventListener('keydown', (e) => {
     if (!Object.keys(keyStatusMap).includes(e.key)) return
-
     const controlRotationAngle = controls.getAzimuthalAngle()
     keyStatusMap[e.key] = true
 
+    const transformed = new THREE.Vector3()
     if (e.key === 'ArrowUp') {
       player.rotation.y = controlRotationAngle + Math.PI
-      camera.position.z += 0.2
+      transformed.z -= 0.2
     } else if (e.key === 'ArrowDown') {
       player.rotation.y = controlRotationAngle
-      camera.position.z -= 0.2
+      transformed.z += 0.2
     } else if (e.key === 'ArrowLeft') {
       player.rotation.y = controlRotationAngle - Math.PI / 2
-      camera.position.x += 0.2
+      transformed.x -= 0.2
     } else if (e.key === 'ArrowRight') {
       player.rotation.y = controlRotationAngle + Math.PI / 2
-      camera.position.x -= 0.2
+      transformed.x += 0.2
     }
-    
-    player.translateZ(0.2)
-    console.log('camera', camera.position)
-    console.log('player', player.position)
 
-    const playerDirection = new THREE.Vector3()
-    player.getWorldDirection(playerDirection) // 获取相对世界空间下，player的坐标
-    playerDirection.normalize()
-    playerDirection.multiplyScalar(0.2)
-    // if (e.key === 'ArrowUp') {
-    //   camera.position.z = camera.position.z + player.position.z
-    // } else if (e.key === 'ArrowDown') {
-    //   camera.position.x = camera.position.x - player.position.x
-    // } else if (e.key === 'ArrowLeft') {
-    //   camera.position.z = camera.position.z + player.position.z
-    // } else if (e.key === 'ArrowRight') {
-    //   camera.position.x = camera.position.x + player.position.x
-    // }
-    console.log('playerDirection', playerDirection)
-    console.log('camera-result', camera.position)
-    // camera.position.set(camera.position.x + playerDirection.x, camera.position.y, camera.position.z)
+    transformed.applyAxisAngle(THREE.Object3D.DEFAULT_UP, controlRotationAngle)
+    player.position.add(transformed)
+    camera.position.add(transformed)
     controls.target = player.position
 
     if (!isRunning) {
@@ -120,7 +105,7 @@ onMounted(() => {
   window.addEventListener('keyup', (e) => {
     if (!Object.keys(keyStatusMap).includes(e.key)) return
     keyStatusMap[e.key] = false
-    if(Object.values(keyStatusMap).every(b => !b)) {
+    if (Object.values(keyStatusMap).every((b) => !b)) {
       isRunning = false
       animationMixer = startAnimationOfName(player, animations, 'idle')
     }
