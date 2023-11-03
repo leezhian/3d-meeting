@@ -6,6 +6,8 @@
 import * as THREE from 'three'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 
+const clock = new THREE.Clock()
+
 export interface CanvasInfo {
   width: number
   height: number
@@ -14,7 +16,7 @@ export interface CanvasInfo {
 
 export interface CustomFnMap {
   "resize": (canvasInfo: CanvasInfo) => any
-  "tick": () => any
+  "tick": (deltaTime: number) => any
 }
 
 interface CustomFnsCache {
@@ -127,8 +129,9 @@ function resizeHander() {
  * @return {void}
  */
 function tick() {
+  const deltaTime = clock.getDelta()
   if (customFnsCache.tick && customFnsCache.tick.length) {
-    customFnsCache.tick.forEach(fn => fn())
+    customFnsCache.tick.forEach(fn => fn(deltaTime))
   }
 
   requestAnimationFrame(tick)
