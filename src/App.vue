@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+import * as dat from 'dat.gui'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { Octree } from 'three/examples/jsm/math/Octree.js'
+import { OctreeHelper } from 'three/examples/jsm/helpers/OctreeHelper.js'
+import { Capsule } from 'three/examples/jsm/math/Capsule.js'
 import {
   webGLRender,
   canvasInfo,
@@ -17,28 +21,44 @@ import {
 import type { CanvasInfo } from '@/helpers/core'
 // import LoginModal from "@/components/shared/login-modal/index.vue"
 
+const gui = new dat.GUI()
 const canvasRef = ref<HTMLCanvasElement>()
+let scene: THREE.Scene
 let animationMixer: THREE.AnimationMixer
 let player: THREE.Group<THREE.Object3DEventMap>
+const playerTransformed = new THREE.Vector3()
 let isRunning = false
+let playerOnFloor = false
 const keyStates: Record<string, boolean> = {
   ArrowUp: false,
   ArrowDown: false,
   ArrowLeft: false,
   ArrowRight: false,
 }
+let worldOctree: Octree
 
 onMounted(() => {
   if (!canvasRef.value) return
   init(canvasRef.value)
 
+  const debugObj = {
+    showOctreeHelper: false,
+    drawCapsule: () => {
+      console.log('234')
+    },
+  }
+  scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(
     75,
     canvasInfo.width / canvasInfo.height,
   )
   camera.position.set(0, 3, -5)
+  const playerCollider = new Capsule(
+    new THREE.Vector3(0, 0, 6),
+    new THREE.Vector3(0, 1, 6),
+    0.3,
+  )
 
-  const scene = new THREE.Scene()
   // const axesHelper = new THREE.AxesHelper(5)
   // scene.add(axesHelper)
 
@@ -65,6 +85,8 @@ onMounted(() => {
     player = fbxData
     // 缩放100倍
     player.scale.set(0.01, 0.01, 0.01)
+    player.position.set(0, 0, 6)
+    // player.position.y = 1
     scene.add(player)
     controls.target = player.position
 
@@ -73,16 +95,25 @@ onMounted(() => {
   })
 
   const gltfLoader = new GLTFLoader()
+  let octreeHelper: OctreeHelper
+  worldOctree = new Octree()
   gltfLoader.load('/modals/meeting.glb', (gltf) => {
     scene.add(gltf.scene)
+
+    worldOctree.fromGraphNode(gltf.scene)
+    octreeHelper = new OctreeHelper(worldOctree)
+    octreeHelper.visible = debugObj.showOctreeHelper
+    scene.add(octreeHelper)
   })
 
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
 
-  function handleControls() {
+  function handleControls(deltaTime: number) {
     if (Object.values(keyStates).every((b) => !b)) return
 
+    // 保证不同刷新率的屏幕相同时间位移一样
+    const speed = deltaTime * 4
     let forword = 0 // 0 代表没有前后 1表示前 -1表示后
     let side = 0
     for (let code in keyStates) {
@@ -112,23 +143,38 @@ onMounted(() => {
       (forword && side ? 2 : 1)
     player.rotation.y = controlRotationAngle + playRotateRelativeToCamera
 
-    const transformed = new THREE.Vector3()
     if (forword) {
-      transformed.z -= 0.01 * forword
+      playerTransformed.z -= speed * forword
     }
 
     if (side) {
-      transformed.x += 0.01 * side
+      playerTransformed.x += speed * side
     }
 
-    transformed.applyAxisAngle(THREE.Object3D.DEFAULT_UP, controlRotationAngle)
-    player.position.add(transformed)
-    camera.position.add(transformed)
+    const diff = camera.position.clone().sub(player.position) // 计算相机与人物的向量差
+    playerTransformed.applyAxisAngle(THREE.Object3D.DEFAULT_UP, controlRotationAngle)
+    playerCollider.translate(playerTransformed)
+    playerCollisions()
+    player.position.copy(playerCollider.start)
+    console.log(player.position)
+    camera.position.copy(diff.add(player.position))
     controls.target = player.position
+    playerTransformed.set(0, 0, 0)
 
     if (!isRunning) {
       isRunning = true
       animationMixer = startAnimationOfName(player, animations, 'running')
+    }
+  }
+
+  /**
+   * @description: 人物碰撞检测
+   * @return {void}
+   */  
+  function playerCollisions() {
+    const result = worldOctree.capsuleIntersect(playerCollider)
+    if (result) {
+      playerCollider.translate(result.normal.multiplyScalar(result.depth))
     }
   }
 
@@ -141,7 +187,7 @@ onMounted(() => {
   // let clock = new THREE.Clock()
   listen('tick', (deltaTime: number) => {
     // console.log(deltaTime);
-    handleControls()
+    handleControls(deltaTime)
     controls.update()
     webGLRender?.render(scene, camera)
     if (animationMixer) {
@@ -149,37 +195,43 @@ onMounted(() => {
     }
   })
 
+  gui
+    .add(debugObj, 'showOctreeHelper')
+    .name('开启 OctreeHelper')
+    .onChange((checked: boolean) => {
+      octreeHelper.visible = checked
+    })
+  gui.add(debugObj, 'drawCapsule').name('绘制 Capsule')
+
   onBeforeUnmount(() => {
     unbindEvents()
     window.removeEventListener('keydown', onKeyDown)
     window.removeEventListener('keyup', onKeyUp)
   })
+  // function playerCollisions() {
+  //   const result = worldOctree.capsuleIntersect(player)
+  // }
+})
 
-  function onKeyDown(e: KeyboardEvent) {
-    if (!Object.keys(keyStates).includes(e.key)) return
-    const controlRotationAngle = controls.getAzimuthalAngle()
-    keyStates[e.key] = true
+function onKeyDown(e: KeyboardEvent) {
+  if (!Object.keys(keyStates).includes(e.key)) return
+  keyStates[e.key] = true
+}
 
-    // const transformed = new THREE.Vector3()
-    if (e.key === 'ArrowUp') {
-      player.rotation.y = controlRotationAngle + Math.PI
-    } else if (e.key === 'ArrowDown') {
-      player.rotation.y = controlRotationAngle
-    } else if (e.key === 'ArrowLeft') {
-      player.rotation.y = controlRotationAngle - Math.PI / 2
-    } else if (e.key === 'ArrowRight') {
-      player.rotation.y = controlRotationAngle + Math.PI / 2
-    }
+function onKeyUp(e: KeyboardEvent) {
+  if (!Object.keys(keyStates).includes(e.key)) return
+  keyStates[e.key] = false
+  if (Object.values(keyStates).every((b) => !b)) {
+    isRunning = false
+    animationMixer = startAnimationOfName(player, animations, 'idle')
   }
+}
 
-  function onKeyUp(e: KeyboardEvent) {
-    if (!Object.keys(keyStates).includes(e.key)) return
-    keyStates[e.key] = false
-    if (Object.values(keyStates).every((b) => !b)) {
-      isRunning = false
-      animationMixer = startAnimationOfName(player, animations, 'idle')
-    }
-  }
+onBeforeUnmount(() => {
+  gui.destroy()
+  unbindEvents()
+  window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('keyup', onKeyUp)
 })
 </script>
 
