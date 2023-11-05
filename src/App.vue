@@ -25,6 +25,7 @@ const gui = new dat.GUI()
 const canvasRef = ref<HTMLCanvasElement>()
 let scene: THREE.Scene
 let animationMixer: THREE.AnimationMixer
+let sceneAnimationMixer: THREE.AnimationMixer
 let player: THREE.Group<THREE.Object3DEventMap>
 const playerTransformed = new THREE.Vector3()
 let isRunning = false
@@ -48,6 +49,7 @@ onMounted(() => {
     },
   }
   scene = new THREE.Scene()
+  scene.background = new THREE.Color(0xeeeeee)
   const camera = new THREE.PerspectiveCamera(
     75,
     canvasInfo.width / canvasInfo.height,
@@ -64,21 +66,18 @@ onMounted(() => {
 
   // 灯光
   const ambientLight = new THREE.AmbientLight(0xffffff)
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
+  const directionalLight = new THREE.DirectionalLight(0xffc766, 0.2)
   directionalLight.shadow.mapSize.set(1024, 1024)
   directionalLight.shadow.camera.far = 15
-  directionalLight.shadow.camera.left = -7
-  directionalLight.shadow.camera.top = 7
-  directionalLight.shadow.camera.right = 7
-  directionalLight.shadow.camera.bottom = -7
-  directionalLight.position.set(5, 5, 5)
+  directionalLight.position.set(-8, 6, 0)
   scene.add(ambientLight, directionalLight)
 
   const controls = new OrbitControls(camera, canvasRef.value)
   controls.enableDamping = true
   controls.maxPolarAngle = Math.PI / 2
-  controls.minDistance = 3
+  controls.minDistance = 1
   controls.maxDistance = 8
+  controls.target = playerCollider.end
 
   const fbxLoader = new FBXLoader()
   fbxLoader.load('/modals/girl.fbx', async (fbxData) => {
@@ -88,7 +87,6 @@ onMounted(() => {
     player.position.set(0, 0, 6)
     // player.position.y = 1
     scene.add(player)
-    controls.target = player.position
 
     await loadAnimations()
     animationMixer = startAnimationOfName(player, animations, 'idle')
@@ -104,6 +102,36 @@ onMounted(() => {
     octreeHelper = new OctreeHelper(worldOctree)
     octreeHelper.visible = debugObj.showOctreeHelper
     scene.add(octreeHelper)
+
+    gltf.scene.traverse(child => {
+      // if((child as THREE.Mesh).isMesh) {
+      //   child.castShadow = true
+      //   child.receiveShadow = true
+      // }
+      if(child.name === 'screen') {
+        const videoMesh = child.children[0] as THREE.Mesh
+        const video = document.createElement('video')
+        video.src = 'https://stream7.iqilu.com/10339/article/202002/18/2fca1c77730e54c7b500573c2437003f.mp4'
+        video.autoplay = true
+        // video.muted = true
+        video.crossOrigin = 'anonymous'
+        const texture = new THREE.VideoTexture(video)
+        const m = new THREE.MeshStandardMaterial({
+          map: texture
+        })
+        videoMesh.material = m
+        videoMesh.scale.z = -1
+      }
+    })
+
+    // 播放场景动画
+    sceneAnimationMixer = new THREE.AnimationMixer(gltf.scene)
+    const animNames = ['Fan', 'vaccuum_move', 'mediaFrames-bob', 'blackPanel.001Action', 'blackPanel.002Action', 'blackPanel.003Action']
+    animNames.forEach(name => {
+      const animClip = THREE.AnimationClip.findByName(gltf.animations, name)
+      const action = sceneAnimationMixer.clipAction(animClip)
+      action.play()
+    })
   })
 
   window.addEventListener('keydown', onKeyDown)
@@ -192,7 +220,7 @@ onMounted(() => {
     const diff = camera.position.clone().sub(player.position) // 计算相机与人物的向量差
     player.position.copy(playerCollider.start)
     camera.position.copy(diff.add(player.position))
-    controls.target = player.position
+    controls.target = playerCollider.end
     playerTransformed.set(0, 0, 0)
   }
 
@@ -225,10 +253,9 @@ onMounted(() => {
     playerControls(deltaTime)
     updatePlayer(deltaTime)
     controls.update()
+    animationMixer?.update(deltaTime)
+    sceneAnimationMixer?.update(deltaTime)
     webGLRender?.render(scene, camera)
-    if (animationMixer) {
-      animationMixer.update(deltaTime)
-    }
   })
 
   gui
@@ -244,9 +271,6 @@ onMounted(() => {
     window.removeEventListener('keydown', onKeyDown)
     window.removeEventListener('keyup', onKeyUp)
   })
-  // function playerCollisions() {
-  //   const result = worldOctree.capsuleIntersect(player)
-  // }
 })
 
 function onKeyDown(e: KeyboardEvent) {
