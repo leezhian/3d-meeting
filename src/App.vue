@@ -99,7 +99,7 @@ onMounted(() => {
   worldOctree = new Octree()
   gltfLoader.load('/modals/meeting.glb', (gltf) => {
     scene.add(gltf.scene)
-
+    // TODO screen 添加视频
     worldOctree.fromGraphNode(gltf.scene)
     octreeHelper = new OctreeHelper(worldOctree)
     octreeHelper.visible = debugObj.showOctreeHelper
@@ -109,7 +109,12 @@ onMounted(() => {
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
 
-  function handleControls(deltaTime: number) {
+  /**
+   * @description: 人物控制
+   * @param {number} deltaTime
+   * @return {void}
+   */  
+  function playerControls(deltaTime: number) {
     if (Object.values(keyStates).every((b) => !b)) return
 
     // 保证不同刷新率的屏幕相同时间位移一样
@@ -151,15 +156,10 @@ onMounted(() => {
       playerTransformed.x += speed * side
     }
 
-    const diff = camera.position.clone().sub(player.position) // 计算相机与人物的向量差
-    playerTransformed.applyAxisAngle(THREE.Object3D.DEFAULT_UP, controlRotationAngle)
-    playerCollider.translate(playerTransformed)
-    playerCollisions()
-    player.position.copy(playerCollider.start)
-    console.log(player.position)
-    camera.position.copy(diff.add(player.position))
-    controls.target = player.position
-    playerTransformed.set(0, 0, 0)
+    playerTransformed.applyAxisAngle(
+      THREE.Object3D.DEFAULT_UP,
+      controlRotationAngle,
+    )
 
     if (!isRunning) {
       isRunning = true
@@ -168,13 +168,49 @@ onMounted(() => {
   }
 
   /**
-   * @description: 人物碰撞检测
+   * @description: 更新任务位置
+   * @param {number} deltaTime
    * @return {void}
    */  
+  function updatePlayer(deltaTime: number) {
+    if (!player || !camera) return
+    // const d = Math.min( 0.05, deltaTime) 
+    // let damping = Math.exp(-4 * d) - 1
+
+    // if (!playerOnFloor) {
+    //   playerTransformed.y -= 50 * deltaTime
+    //   // small air resistance
+    //   damping *= 0.1
+    // }
+    
+
+    // playerTransformed.addScaledVector(playerTransformed, damping)
+    playerCollider.translate(playerTransformed)
+    playerCollisions()
+    // console.log(playerCollider);
+    
+    const diff = camera.position.clone().sub(player.position) // 计算相机与人物的向量差
+    player.position.copy(playerCollider.start)
+    camera.position.copy(diff.add(player.position))
+    controls.target = player.position
+    playerTransformed.set(0, 0, 0)
+  }
+
+  /**
+   * @description: 人物碰撞检测
+   * @return {void}
+   */
   function playerCollisions() {
     const result = worldOctree.capsuleIntersect(playerCollider)
-    if (result) {
-      playerCollider.translate(result.normal.multiplyScalar(result.depth))
+    if (result.depth) {
+      playerOnFloor = result.normal.y > 0
+      // if (!playerOnFloor) {
+      //   playerTransformed.addScaledVector(
+      //     result.normal,
+      //     -result.normal.dot(playerTransformed),
+      //   )
+      // }
+      playerCollider.translate(result.normal.multiplyScalar(result.depth))      
     }
   }
 
@@ -186,8 +222,8 @@ onMounted(() => {
 
   // let clock = new THREE.Clock()
   listen('tick', (deltaTime: number) => {
-    // console.log(deltaTime);
-    handleControls(deltaTime)
+    playerControls(deltaTime)
+    updatePlayer(deltaTime)
     controls.update()
     webGLRender?.render(scene, camera)
     if (animationMixer) {
