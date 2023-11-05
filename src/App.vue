@@ -19,6 +19,7 @@ import {
   startAnimationOfName,
 } from '@/helpers/core'
 import type { CanvasInfo } from '@/helpers/core'
+import AnimGroup from '@/components/anim-group/index.vue'
 // import LoginModal from "@/components/shared/login-modal/index.vue"
 
 const gui = new dat.GUI()
@@ -37,6 +38,10 @@ const keyStates: Record<string, boolean> = {
   ArrowRight: false,
 }
 let worldOctree: Octree
+const animActions = ref([
+  { label: 'Dance', value: 'dancing' },
+  { label: 'Hi', value: 'waving' },
+])
 
 onMounted(() => {
   if (!canvasRef.value) return
@@ -114,6 +119,7 @@ onMounted(() => {
         video.src = 'https://stream7.iqilu.com/10339/article/202002/18/2fca1c77730e54c7b500573c2437003f.mp4'
         video.autoplay = true
         // video.muted = true
+        video.loop = true
         video.crossOrigin = 'anonymous'
         const texture = new THREE.VideoTexture(video)
         const m = new THREE.MeshStandardMaterial({
@@ -293,9 +299,19 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('keyup', onKeyUp)
 })
+
+function handlePlayerAction(value: string) {
+  animationMixer = startAnimationOfName(player, animations, value, false)
+  function handleFinshed() {
+    animationMixer.removeEventListener('finished', handleFinshed)
+    animationMixer = startAnimationOfName(player, animations, 'idle')
+  }
+  animationMixer.addEventListener('finished', handleFinshed)
+}
 </script>
 
 <template>
+  <AnimGroup :options="animActions" @click="handlePlayerAction" />
   <canvas ref="canvasRef"></canvas>
   <!-- <LoginModal /> -->
 </template>

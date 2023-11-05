@@ -146,9 +146,12 @@ export async function loadAnimations() {
     const fbxLoader = new FBXLoader()
     fbxLoader.setPath('/animations/')
     const animFbxes = await Promise.all([
-      fbxLoader.loadAsync('idle.fbx').then(res => ({idle: res.animations[0]})),
-      // fbxLoader.loadAsync('walking.fbx'),
-      fbxLoader.loadAsync('running.fbx').then(res => ({running: res.animations[0]})),
+      fbxLoader.loadAsync('idle.fbx').then(res => ({ idle: res.animations[0] })),
+      fbxLoader.loadAsync('running.fbx').then(res => ({ running: res.animations[0] })),
+      fbxLoader.loadAsync('jump.fbx').then(res => ({ jump: res.animations[0] })),
+      fbxLoader.loadAsync('sitting.fbx').then(res => ({ sitting: res.animations[0] })),
+      fbxLoader.loadAsync('waving.fbx').then(res => ({ waving: res.animations[0] })),
+      fbxLoader.loadAsync('dancing.fbx').then(res => ({ dancing: res.animations[0] })),
     ])
 
     animations = animFbxes.reduce((o, item) => {
@@ -166,12 +169,13 @@ export async function loadAnimations() {
  * @param {string} animName 动画名称
  * @return {THREE.AnimationMixer}
  */
-export function startAnimationOfName(object3d: THREE.Object3D, animations: Record<string, THREE.AnimationClip>, animName: string) {
+export function startAnimationOfName(object3d: THREE.Object3D, animations: Record<string, THREE.AnimationClip>, animName: string, loop = true) {
   const animationMixer = new THREE.AnimationMixer(object3d)
   const clip = animations[animName]
-  
+
   if (clip) {
     const action = animationMixer.clipAction(clip)
+    action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
     action.play()
   }
 
