@@ -4,7 +4,6 @@
  * @Description: 
  */
 import * as THREE from 'three'
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 
 const clock = new THREE.Clock()
 
@@ -36,7 +35,6 @@ export const canvasInfo: CanvasInfo = {
   height: window.innerHeight,
   pixelRatio: Math.min(window.devicePixelRatio, 2)
 }
-export let animations: Record<string, THREE.AnimationClip> = {}
 
 export const init = (canvasElement: HTMLCanvasElement) => {
   if (canvas) {
@@ -135,49 +133,4 @@ function tick() {
   }
 
   requestAnimationFrame(tick)
-}
-
-/**
- * @description: 加载动画
- * @return {Promise<Record<string, THREE.AnimationClip>>}
- */
-export async function loadAnimations() {
-  if (!Object.keys(animations).length) {
-    const fbxLoader = new FBXLoader()
-    fbxLoader.setPath('/animations/')
-    const animFbxes = await Promise.all([
-      fbxLoader.loadAsync('idle.fbx').then(res => ({ idle: res.animations[0] })),
-      fbxLoader.loadAsync('running.fbx').then(res => ({ running: res.animations[0] })),
-      fbxLoader.loadAsync('jump.fbx').then(res => ({ jump: res.animations[0] })),
-      fbxLoader.loadAsync('sitting.fbx').then(res => ({ sitting: res.animations[0] })),
-      fbxLoader.loadAsync('waving.fbx').then(res => ({ waving: res.animations[0] })),
-      fbxLoader.loadAsync('dancing.fbx').then(res => ({ dancing: res.animations[0] })),
-    ])
-
-    animations = animFbxes.reduce((o, item) => {
-      Object.assign(o, item)
-      return o
-    }, {})
-  }
-  return animations
-}
-
-/**
- * @description: 开始动画
- * @param {THREE} object3d 目前节点
- * @param {Record<string, THREE.AnimationClip>} animations 动画组
- * @param {string} animName 动画名称
- * @return {THREE.AnimationMixer}
- */
-export function startAnimationOfName(object3d: THREE.Object3D, animations: Record<string, THREE.AnimationClip>, animName: string, loop = true) {
-  const animationMixer = new THREE.AnimationMixer(object3d)
-  const clip = animations[animName]
-
-  if (clip) {
-    const action = animationMixer.clipAction(clip)
-    action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
-    action.play()
-  }
-
-  return animationMixer
 }

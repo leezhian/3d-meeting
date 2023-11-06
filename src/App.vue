@@ -11,22 +11,20 @@ import { Capsule } from 'three/examples/jsm/math/Capsule.js'
 import {
   webGLRender,
   canvasInfo,
-  animations,
   unbindEvents,
   listen,
   init,
-  loadAnimations,
-  startAnimationOfName,
 } from '@/helpers/core'
 import type { CanvasInfo } from '@/helpers/core'
+import { AnimationControl } from '@/helpers/animation-control'
 import AnimGroup from '@/components/anim-group/index.vue'
 // import LoginModal from "@/components/shared/login-modal/index.vue"
 
 const gui = new dat.GUI()
 const canvasRef = ref<HTMLCanvasElement>()
 let scene: THREE.Scene
-let animationMixer: THREE.AnimationMixer
-let sceneAnimationMixer: THREE.AnimationMixer
+const playerAnimControl = new AnimationControl('/animations/')
+const sceneAnimControl = new AnimationControl()
 let player: THREE.Group<THREE.Object3DEventMap>
 const playerTransformed = new THREE.Vector3()
 let isRunning = false
@@ -84,25 +82,11 @@ onMounted(() => {
   controls.maxDistance = 8
   controls.target = playerCollider.end
 
-  const fbxLoader = new FBXLoader()
-  fbxLoader.load('/modals/girl.fbx', async (fbxData) => {
-    player = fbxData
-    // 缩放100倍
-    player.scale.set(0.01, 0.01, 0.01)
-    player.position.set(0, 0, 6)
-    // player.position.y = 1
-    scene.add(player)
-
-    await loadAnimations()
-    animationMixer = startAnimationOfName(player, animations, 'idle')
-  })
-
   const gltfLoader = new GLTFLoader()
   let octreeHelper: OctreeHelper
   worldOctree = new Octree()
   gltfLoader.load('/modals/meeting.glb', (gltf) => {
     scene.add(gltf.scene)
-    // TODO screen 添加视频
     worldOctree.fromGraphNode(gltf.scene)
     octreeHelper = new OctreeHelper(worldOctree)
     octreeHelper.visible = debugObj.showOctreeHelper
@@ -128,17 +112,38 @@ onMounted(() => {
         videoMesh.material = m
         videoMesh.scale.z = -1
       }
+      
+      // if(child.name === 'chairNormal001') {
+      //   player.rotation.y = Math.PI / 2
+      //   playerCollider.set(child.position.clone().sub(new THREE.Vector3(-0.14, 0.3, 0)), child.position.clone().add(new THREE.Vector3(-0.14, 0.7, 0)), playerCollider.radius)
+      // }
     })
 
     // 播放场景动画
-    sceneAnimationMixer = new THREE.AnimationMixer(gltf.scene)
-    const animNames = ['Fan', 'vaccuum_move', 'mediaFrames-bob', 'blackPanel.001Action', 'blackPanel.002Action', 'blackPanel.003Action']
-    animNames.forEach(name => {
-      const animClip = THREE.AnimationClip.findByName(gltf.animations, name)
-      const action = sceneAnimationMixer.clipAction(animClip)
-      action.play()
-    })
+    sceneAnimControl.analyse(gltf.animations)
+    sceneAnimControl.startAnimation(gltf.scene, ['Fan', 'vaccuum_move', 'mediaFrames-bob', 'blackPanel.001Action', 'blackPanel.002Action', 'blackPanel.003Action'])
   })
+
+  const fbxLoader = new FBXLoader()
+  fbxLoader.load('/modals/girl.fbx', async (fbxData) => {
+    player = fbxData
+    // 缩放100倍
+    player.scale.set(0.01, 0.01, 0.01)
+    player.position.set(0, 0, 6)
+    scene.add(player)
+    
+    await playerAnimControl.load({
+      idle: 'idle.fbx',
+      running: 'running.fbx',
+      jump: 'jump.fbx',
+      sitting: 'sitting.fbx',
+      waving: 'waving.fbx',
+      dancing: 'dancing.fbx'
+    })
+    playerAnimControl.startAnimation(player, 'idle')
+  })
+
+  
 
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
@@ -197,7 +202,7 @@ onMounted(() => {
 
     if (!isRunning) {
       isRunning = true
-      animationMixer = startAnimationOfName(player, animations, 'running')
+      playerAnimControl.startAnimation(player, 'running')
     }
   }
 
@@ -259,8 +264,8 @@ onMounted(() => {
     playerControls(deltaTime)
     updatePlayer(deltaTime)
     controls.update()
-    animationMixer?.update(deltaTime)
-    sceneAnimationMixer?.update(deltaTime)
+    playerAnimControl.mixer?.update(deltaTime)
+    sceneAnimControl.mixer?.update(deltaTime)
     webGLRender?.render(scene, camera)
   })
 
@@ -289,7 +294,7 @@ function onKeyUp(e: KeyboardEvent) {
   keyStates[e.key] = false
   if (Object.values(keyStates).every((b) => !b)) {
     isRunning = false
-    animationMixer = startAnimationOfName(player, animations, 'idle')
+    playerAnimControl.startAnimation(player, 'idle')
   }
 }
 
@@ -301,12 +306,13 @@ onBeforeUnmount(() => {
 })
 
 function handlePlayerAction(value: string) {
-  animationMixer = startAnimationOfName(player, animations, value, false)
+  playerAnimControl.startAnimation(player, value, false)
   function handleFinshed() {
-    animationMixer.removeEventListener('finished', handleFinshed)
-    animationMixer = startAnimationOfName(player, animations, 'idle')
+    playerAnimControl.mixer?.removeEventListener('finished', handleFinshed)
+    playerAnimControl.startAnimation(player, 'idle')
   }
-  animationMixer.addEventListener('finished', handleFinshed)
+
+  playerAnimControl.mixer?.addEventListener('finished', handleFinshed)
 }
 </script>
 
