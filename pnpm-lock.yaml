@@ -14,6 +14,9 @@ dependencies:
   dat.gui:
     specifier: ^0.7.9
     version: 0.7.9
+  mitt:
+    specifier: ^3.0.1
+    version: 3.0.1
   three:
     specifier: ^0.158.0
     version: 0.158.0
@@ -1048,6 +1051,10 @@ packages:
     dependencies:
       brace-expansion: 2.0.1
     dev: true
+
+  /mitt@3.0.1:
+    resolution: {integrity: sha512-vKivATfr97l2/QBCYAkXYDbrIWPM2IIKEl7YPhjCvKlG3kE2gm+uBo6nEXK3M5/Ffh/FLpKExzOQ3JJoJGFKBw==}
+    dev: false
 
   /mlly@1.4.2:
     resolution: {integrity: sha512-i/Ykufi2t1EZ6NaPLdfnZk2AX8cs0d+mTzVKuPfqPKPatxLApaBoxJQ9x1/uckXtrS/U5oisPMDkNs0yQTaBRg==}
