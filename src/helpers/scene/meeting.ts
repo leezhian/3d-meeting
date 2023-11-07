@@ -4,6 +4,7 @@
  * @Description: 会议场景
  */
 import { Scene, AmbientLight, DirectionalLight } from 'three'
+import { Octree } from 'three/examples/jsm/math/Octree.js'
 import type { Emitter } from '@/helpers/emitter'
 import { Loader } from '@/helpers/loader'
 import { AnimationControl } from '@/helpers/animation-control'
@@ -19,11 +20,13 @@ export class Meeting {
   private emitter: Emitter
   private loader: Loader
   private animationControl: AnimationControl
+  octree: Octree
 
   constructor({ scene, emitter, loader }: MeetingOptions) {
     this.scene = scene
     this.emitter = emitter
     this.loader = loader
+    this.octree = new Octree()
     this.animationControl = new AnimationControl()
 
     this.load()
@@ -32,6 +35,7 @@ export class Meeting {
   private async load() {
     await this.loadScene()
     this.initSceneOtherEffects()
+    // TODO 通知加载完毕
   }
 
   private async loadScene() {
@@ -45,6 +49,8 @@ export class Meeting {
       })
 
       this.scene.add(gltf.scene)
+      // 构建八叉树
+      this.octree.fromGraphNode(gltf.scene)
 
       this.animationControl.analyse(gltf.animations)
       this.animationControl.startAnimation(gltf.scene, ['Fan', 'vaccuum_move', 'mediaFrames-bob', 'blackPanel.001Action', 'blackPanel.002Action', 'blackPanel.003Action'])

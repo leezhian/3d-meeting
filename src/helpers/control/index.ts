@@ -54,7 +54,7 @@ export class Control {
    * @return {*}
    */  
   onKeyUp(event: KeyboardEvent) {
-    if(this.isAllowKey(event.code) && this.isEnable) {
+    if(this.isAllowKey(event.code) && this.isEnable) { 
       this.keyState[event.code] = false
       this.emitter.emit(ON_KEY_UP, event.code)
     }

@@ -1,7 +1,7 @@
 /*
  * @Author: kim
  * @Date: 2023-11-06 19:10:29
- * @Description: 
+ * @Description: 基础核心类
  */
 import { Scene, Clock, WebGLRenderer, PerspectiveCamera, Color, VSMShadowMap } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
@@ -9,7 +9,6 @@ import { Emitter } from '@/helpers/emitter'
 import { World } from '@/helpers/world'
 import { Control } from '@/helpers/control'
 import { Loader } from '@/helpers/loader'
-
 
 export interface CanvasInfo {
   width: number
@@ -59,7 +58,8 @@ export class Core {
       camera: this.camera,
       emitter: this.emitter,
       loader: this.loader,
-      orbitControls: this.orbitControls
+      orbitControls: this.orbitControls,
+      control: this.control
     })
   }
 
@@ -119,7 +119,9 @@ export class Core {
     this.canvasInfo.width = window.innerWidth
     this.canvasInfo.height = window.innerHeight
     this.canvasInfo.pixelRatio = Math.min(window.devicePixelRatio, 2)
-
+    
+    this.camera.aspect = this.canvasInfo.width / this.canvasInfo.height
+    this.camera.updateProjectionMatrix()
     this.renderer.setSize(this.canvasInfo.width, this.canvasInfo.height)
     this.renderer?.setPixelRatio(this.canvasInfo.pixelRatio)
 
@@ -127,11 +129,12 @@ export class Core {
   }
 
   private bindEvents() {
-    window.addEventListener('resize', this.resizeHander)
+    window.addEventListener('resize', this.resizeHander.bind(this))
   }
 
   private unbindEvents() {
-    window.removeEventListener('resize', this.resizeHander)
+    window.removeEventListener('resize', this.resizeHander.bind(this))
+
   }
 
   /**

@@ -8,13 +8,15 @@ import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js
 import type { Emitter } from '@/helpers/emitter'
 import { Player } from '@/helpers/player'
 import { Meeting } from '@/helpers/scene/meeting'
-import { Loader } from '@/helpers/loader'
+import type { Loader } from '@/helpers/loader'
+import type { Control } from '@/helpers/control'
 
 export interface WorldOptions {
   scene: Scene
   camera: PerspectiveCamera
   emitter: Emitter
   orbitControls: OrbitControls
+  control: Control,
   loader: Loader
 }
 
@@ -27,11 +29,13 @@ export class World {
   private player: Player
   private environment: Meeting
   private loader: Loader
+  private control: Control
 
-  constructor({ scene, camera, emitter, orbitControls, loader }: WorldOptions) {
+  constructor({ scene, camera, emitter, orbitControls, loader, control }: WorldOptions) {
     this.scene = scene
     this.camera = camera
     this.orbitControls = orbitControls
+    this.control = control
     this.emitter = emitter
     this.loader = loader
 
@@ -39,6 +43,7 @@ export class World {
       scene: this.scene,
       camera: this.camera,
       orbitControls: this.orbitControls,
+      control: this.control,
       loader: this.loader,
       emitter: this.emitter
     })
@@ -50,7 +55,10 @@ export class World {
   }
 
   update(delta: number) {
-    this.player.update(delta)
+    // 避免初始加载时多余的性能消耗和人物碰撞错误处理
+    if(this.environment.octree) {
+      this.player.update(delta, this.environment.octree)
+    }
     this.environment.update(delta)
   }
 }
