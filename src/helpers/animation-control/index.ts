@@ -69,7 +69,7 @@ export class AnimationControl {
     } else {
       animationNames = name
     }
-
+    
     this.mixer = new THREE.AnimationMixer(target)
     animationNames.forEach((animName) => {
       if (!this.isExistAnimation(animName)) {

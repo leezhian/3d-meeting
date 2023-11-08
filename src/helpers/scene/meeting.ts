@@ -3,8 +3,9 @@
  * @Date: 2023-11-06 23:01:04
  * @Description: 会议场景
  */
-import { Scene, AmbientLight, DirectionalLight, Object3D, Mesh, MeshStandardMaterial, VideoTexture } from 'three'
+import { Scene, AmbientLight, DirectionalLight, Object3D, Mesh, MeshStandardMaterial, VideoTexture, BufferGeometry, type NormalBufferAttributes } from 'three'
 import { Octree } from 'three/examples/jsm/math/Octree.js'
+import { MeshBVH, StaticGeometryGenerator, type MeshBVHOptions } from 'three-mesh-bvh'
 import type { Emitter } from '@/helpers/emitter'
 import { Loader } from '@/helpers/loader'
 import { AnimationControl } from '@/helpers/animation-control'
@@ -22,6 +23,7 @@ export class Meeting {
   private animationControl: AnimationControl
   private video?: HTMLVideoElement
   octree: Octree
+  bvh?: Mesh
   loaded = false
 
   constructor({ scene, emitter, loader }: MeetingOptions) {
@@ -58,6 +60,13 @@ export class Meeting {
       this.scene.add(gltf.scene)
       // 构建八叉树
       this.octree.fromGraphNode(gltf.scene)
+
+      // 构建 bvh(后面与八叉树二选一)
+      const staticGenerator = new StaticGeometryGenerator(this.scene)
+      staticGenerator.attributes = ['position']
+      const generateGeometry = staticGenerator.generate() as BufferGeometry<NormalBufferAttributes> & { boundsTree: MeshBVH }
+      generateGeometry.boundsTree = new MeshBVH(generateGeometry, { lazyGeneration: false } as MeshBVHOptions)
+      this.bvh = new Mesh(generateGeometry)
 
       this.animationControl.analyse(gltf.animations)
       this.animationControl.startAnimation(gltf.scene, ['Fan', 'vaccuum_move', 'mediaFrames-bob', 'blackPanel.001Action', 'blackPanel.002Action', 'blackPanel.003Action'])
@@ -107,7 +116,7 @@ export class Meeting {
   /**
    * @description: 播放视频
    * @return {void}
-   */  
+   */
   playVideo() {
     this.video?.play()
   }
@@ -115,7 +124,7 @@ export class Meeting {
   /**
    * @description: 暂停视频
    * @return {void}
-   */  
+   */
   pauseVideo() {
     this.video?.pause()
   }

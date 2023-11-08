@@ -36,8 +36,8 @@ export class Emitter {
    * @param {string} event
    * @return {void}
    */  
-  off(name: string, handler?: (...args: any[]) => void) {
-    this.emitter.off(name, handler)
+  off(event: string, handler?: (...args: any[]) => void) {
+    this.emitter.off(event, handler)
   }
 
   /**

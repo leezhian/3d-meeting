@@ -144,6 +144,7 @@ export class Core {
    */  
   destory() {
     this.control.destory()
+    this.emitter.clear()
     this.unbindEvents()
   }
 }

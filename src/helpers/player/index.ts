@@ -3,7 +3,7 @@
 * @Date: 2023-11-06 23:00:38
 * @Description: 玩家
 */
-import { PerspectiveCamera, Scene, Vector3, Group, Object3DEventMap, Object3D } from 'three'
+import { PerspectiveCamera, Scene, Vector3, Group, Object3DEventMap, Object3D, Mesh, Raycaster } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { Capsule } from 'three/examples/jsm/math/Capsule.js'
 import { Octree } from 'three/examples/jsm/math/Octree.js'
@@ -11,7 +11,7 @@ import { AnimationControl } from '@/helpers/animation-control'
 import type { Loader } from '@/helpers/loader'
 import type { Emitter } from '@/helpers/emitter'
 import type { Control } from '@/helpers/control'
-import { ON_KEY_DOWN, ON_KEY_UP } from '@/helpers/constants'
+import { ON_KEY_DOWN, ON_KEY_UP, ON_PLAYER_ACTION } from '@/helpers/constants'
 
 export interface PlayerParams {
   gravity?: number
@@ -54,10 +54,12 @@ export class Player {
   private speed: number // 移动速度
   private velocity = new Vector3()
   private character!: Group<Object3DEventMap>
-  private currentAction: string = 'idle'
+  private forceAction: string = '' // 玩家的强制动作（玩家主动触发）
+  private currentAction: string = 'idle' // 玩家当前动作
   private playerCapsule!: Capsule
-  private initialPositin!: Vector3
-  private capsuleDiffToPlayer= new Vector3(0 ,0 , capsuleParams[0].y) // 胶囊体与玩家模型的位置差值
+  private initialPositin!: Vector3 // 初始位置
+  private capsuleDiffToPlayer = new Vector3(0, capsuleParams[0].y, 0) // 胶囊体与玩家模型的位置差值
+  private cameraRaycaster: Raycaster = new Raycaster()
 
   constructor(options: PlayerOptions) {
     Object.assign(options, defaultParams)
@@ -77,6 +79,7 @@ export class Player {
     this.load()
     this.emitter.on(ON_KEY_UP, this.onKeyUp.bind(this))
     this.emitter.on(ON_KEY_DOWN, this.onKeyDown.bind(this))
+    this.emitter.on(ON_PLAYER_ACTION, this.onPlayerAction.bind(this))
   }
 
   /**
@@ -112,6 +115,11 @@ export class Player {
     this.scene.add(player)
   }
 
+  /**
+   * @description: 玩家控制
+   * @param {number} delta
+   * @return {void}
+   */  
   private playerControl(delta: number) {
     if (Object.keys(this.control.keyState).filter(n => n !== 'Space').every(n => !this.control.keyState[n])) return
 
@@ -165,9 +173,9 @@ export class Player {
    * @param {Octree} octree
    * @return {void}
    */
-  private updatePlayer(delta: number, octree: Octree) {
+  private updatePlayer(delta: number, octree: Octree, bvh: Mesh) {
     // 处理人物下落
-    let damping = Math.exp(-4 * delta) - 1
+    let damping = Math.exp(-4 * delta) - 1 // 模拟阻尼
     if (!this.playerOnFloor) {
       this.velocity.y -= this.gravity * delta
       damping *= 0.1
@@ -184,8 +192,10 @@ export class Player {
     this.character.position.copy(this.playerCapsule.start.clone().sub(this.capsuleDiffToPlayer))
     this.camera.position.copy(diff.add(this.character.position))
     this.orbitControls.target = this.playerCapsule.end
+    // this.cameraCollision([bvh])
     this.velocity.set(0, 0, 0)
 
+    if(this.forceAction !== '') return
     let nextAction: string
     // if(!this.playerOnFloor && this.jumping) {
     //   nextAction = 'jump'
@@ -193,7 +203,7 @@ export class Player {
     if (this.control.keyState['KeyW'] || this.control.keyState['KeyS'] || this.control.keyState['KeyA'] || this.control.keyState['KeyD']) {
       nextAction = 'running'
     } else {
-      nextAction = 'idle'
+      nextAction = 'idle'      
     }
 
     if (this.currentAction !== nextAction) {
@@ -213,6 +223,7 @@ export class Player {
     if (result) {
       this.playerOnFloor = result.normal.y >= 0
       if (!this.playerOnFloor) {
+        // normal 是碰撞的单位方向向量
         this.velocity.addScaledVector(
           result.normal,
           -result.normal.dot(this.velocity),
@@ -226,8 +237,19 @@ export class Player {
    * @description: 相机碰撞处理
    * @return {void}
    */
-  private cameraCollision() {
-
+  private cameraCollision(bvh: Object3D[]) {
+    const ray_direction = new Vector3()
+    ray_direction.subVectors(this.camera.position, this.character.position).normalize();
+    // 设置镜头光线
+    this.cameraRaycaster.set(this.character.position, ray_direction);
+    const intersects = this.cameraRaycaster.intersectObjects(bvh);
+    if (intersects.length) {
+      // 找到碰撞点后还需要往前偏移一点，不然还是可能会看到穿模
+      const offset = new Vector3() // 定义一个向前移动的偏移量
+      offset.copy(ray_direction).multiplyScalar(-0.5) // 计算偏移量，这里的distance是想要向前移动的距离
+      const new_position = new Vector3().addVectors(intersects[0].point, offset) // 计算新的相机位置
+      this.camera.position.copy(new_position)
+    }
   }
 
   /**
@@ -241,6 +263,7 @@ export class Player {
   }
 
   private onKeyDown([keyCode]: string[]) {
+    this.forceAction = ''
     if (keyCode === 'Space') {
       this.jump()
     }
@@ -256,9 +279,30 @@ export class Player {
     }
   }
 
+  private onPlayerAction(action: string) {
+    this.currentAction = action
+    this.forceAction = action
+    
+    this.animationControl.startAnimation(this.character, action, false)
+    function handleFinshed(this: Player) {
+      this.animationControl.mixer?.removeEventListener('finished', handleFinshed)
+      this.animationControl.startAnimation(this.character, 'idle')
+    }
+  
+    this.animationControl.mixer?.addEventListener('finished', handleFinshed.bind(this))
+  }
+
+  /**
+   * @description: 重置玩家位置
+   * @param {Object3D} player
+   * @return {void}
+   */  
   reset(player: Object3D) {
     this.playerCapsule.set(...capsuleParams)
     this.playerCapsule.translate(this.initialPositin)
+    console.log(this.playerCapsule.start.clone().sub(this.capsuleDiffToPlayer));
+    console.log(this.playerCapsule.start);
+    
     player.position.copy(this.playerCapsule.start.clone().sub(this.capsuleDiffToPlayer))
     player.rotation.y = Math.PI / 2
     this.camera.position.set(-4, 1.6, 11.4)
@@ -267,6 +311,7 @@ export class Player {
 
     this.orbitControls.minDistance = 1
     this.orbitControls.maxDistance = 5
+    // remark 后期应交由 camera 碰撞处理
     this.orbitControls.maxPolarAngle = Math.PI / 2
   }
 
@@ -275,9 +320,9 @@ export class Player {
    * @param {number} delta
    * @return {void}
    */
-  update(delta: number, octree: Octree) {
+  update(delta: number, octree: Octree, bvh: Mesh) {
     if (!this.character || !octree) return
-    this.updatePlayer(delta, octree)
+    this.updatePlayer(delta, octree, bvh)
     this.animationControl.mixer?.update(delta)
   }
 }

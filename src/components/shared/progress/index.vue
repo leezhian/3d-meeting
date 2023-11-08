@@ -9,7 +9,7 @@
 
 <script setup lang="ts">
 export interface ProgressProps {
-  percent?: 0
+  percent?: number
 }
 
 withDefaults(defineProps<ProgressProps>(), {

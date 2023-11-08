@@ -7,3 +7,4 @@ export const ON_KEY_DOWN = 'keydown'
 export const ON_KEY_UP = 'keyup'
 
 export const ON_GLOBAL_LOAD_PROGRESS = 'global_load_progress'
+export const ON_PLAYER_ACTION = 'player_action'
