@@ -43,6 +43,7 @@ const onLoadProgress = ([{ url, loaded, total }]: [
 
 const handlePlay = () => {
   core.control.enabled()
+  core.world.environment.playVideo()
   core.emitter.off(ON_GLOBAL_LOAD_PROGRESS, onLoadProgress)
 }
 </script>

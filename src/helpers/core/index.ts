@@ -40,6 +40,7 @@ export class Core {
     this.camera = new PerspectiveCamera()
     this.clock = new Clock()
     this.orbitControls = new OrbitControls(this.camera, this.renderer.domElement)
+    this.orbitControls.enableDamping = true
 
     this.emitter = new Emitter()
     this.initScene()
@@ -86,7 +87,7 @@ export class Core {
   initCamera() {
     this.camera.fov = 75
     this.camera.aspect = this.canvasInfo.width / this.canvasInfo.height
-    this.camera.position.set(0, 3, -5)
+    // this.camera.position.set(0, 3, 10)
     this.camera.updateProjectionMatrix()
   }
 
@@ -99,7 +100,7 @@ export class Core {
     this.renderer.shadowMap.type = VSMShadowMap
     this.renderer.setSize(this.canvasInfo.width, this.canvasInfo.height)
     this.renderer.setPixelRatio(this.canvasInfo.pixelRatio)
-    document.querySelector('body')?.appendChild(this.renderer.domElement)
+    document.querySelector('#app')?.appendChild(this.renderer.domElement)
   }
 
   render() {

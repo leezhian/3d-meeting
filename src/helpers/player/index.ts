@@ -11,12 +11,13 @@ import { AnimationControl } from '@/helpers/animation-control'
 import type { Loader } from '@/helpers/loader'
 import type { Emitter } from '@/helpers/emitter'
 import type { Control } from '@/helpers/control'
-import { ON_KEY_UP } from '@/helpers/constants'
+import { ON_KEY_DOWN, ON_KEY_UP } from '@/helpers/constants'
 
 export interface PlayerParams {
   gravity?: number
   jumpHeight?: number
   speed?: number
+  initialPosition?: Vector3
 }
 
 export interface PlayerOptions extends PlayerParams {
@@ -30,9 +31,13 @@ export interface PlayerOptions extends PlayerParams {
 
 const defaultParams: PlayerParams = {
   speed: 4,
-  gravity: 30,
-  jumpHeight: 12
+  gravity: 2.5,
+  jumpHeight: 1,
+  initialPosition: new Vector3(-6.8, 0, 11.4)
 }
+
+// 胶囊体参数
+const capsuleParams: [Vector3, Vector3, number] = [new Vector3(0, 0.3, 0), new Vector3(0, 1.45, 0), 0.3]
 
 export class Player {
   private scene: Scene
@@ -43,7 +48,7 @@ export class Player {
   private emitter: Emitter
   private animationControl: AnimationControl
 
-  private playerOnFloor = false
+  private playerOnFloor = true
   private gravity: number // 重力
   private jumpHeight: number // 跳跃高度
   private speed: number // 移动速度
@@ -51,6 +56,8 @@ export class Player {
   private character!: Group<Object3DEventMap>
   private currentAction: string = 'idle'
   private playerCapsule!: Capsule
+  private initialPositin!: Vector3
+  private capsuleDiffToPlayer= new Vector3(0 ,0 , capsuleParams[0].y) // 胶囊体与玩家模型的位置差值
 
   constructor(options: PlayerOptions) {
     Object.assign(options, defaultParams)
@@ -65,9 +72,11 @@ export class Player {
     this.gravity = options.gravity!
     this.jumpHeight = options.jumpHeight!
     this.speed = options.speed!
+    this.initialPositin = options.initialPosition!
 
     this.load()
     this.emitter.on(ON_KEY_UP, this.onKeyUp.bind(this))
+    this.emitter.on(ON_KEY_DOWN, this.onKeyDown.bind(this))
   }
 
   /**
@@ -77,11 +86,10 @@ export class Player {
   private async load() {
     const player = await this.loader.fbxLoader.loadAsync('/modals/girl.fbx')
     player.scale.set(0.01, 0.01, 0.01)
-    this.playerCapsule = new Capsule(new Vector3(0, 0.3, 0),
-      new Vector3(0, 1.45, 0),
-      0.3,)
-    this.playerCapsule.translate(new Vector3(0, 0, 6))
-    player.position.copy(this.playerCapsule.start)
+    this.playerCapsule = new Capsule(...capsuleParams)
+    // this.playerCapsule.translate(this.initialPositin)
+    // player.position.copy(this.playerCapsule.start.clone().sub(new Vector3(0, 0.3, 0)))
+    this.reset(player)
     this.character = player
 
     // 加载动画
@@ -104,11 +112,12 @@ export class Player {
     this.scene.add(player)
   }
 
-  private playerControl() {
-    if (Object.values(this.control.keyState).every((b) => !b)) return
+  private playerControl(delta: number) {
+    if (Object.keys(this.control.keyState).filter(n => n !== 'Space').every(n => !this.control.keyState[n])) return
 
     let forword = 0 // 0 代表没有前后 1表示前 -1表示后
     let side = 0
+    const speed = delta * this.speed
     for (let code in this.control.keyState) {
       if (!this.control.keyState[code]) continue
       switch (code) {
@@ -137,11 +146,11 @@ export class Player {
     this.character.rotation.y = controlRotationAngle + playRotateRelativeToCamera
 
     if (forword) {
-      this.velocity.z -= forword
+      this.velocity.z -= speed * forword
     }
 
     if (side) {
-      this.velocity.x += side
+      this.velocity.x += speed * side
     }
 
     this.velocity.applyAxisAngle(
@@ -165,18 +174,22 @@ export class Player {
     }
     this.velocity.addScaledVector(this.velocity, damping)
 
-    this.playerControl() // 处理玩家操作
-    this.playerCapsule.translate(this.velocity.normalize().multiplyScalar(delta * this.speed))
+    this.playerControl(delta) // 处理玩家操作
+    this.playerCapsule.translate(this.velocity)
+
     this.playerCollision(octree) // 碰撞检测
 
     const diff = new Vector3()
     diff.subVectors(this.camera.position, this.character.position) // 计算相机与人物的向量差
-    this.character.position.copy(this.playerCapsule.start.clone().sub(new Vector3(0, 0.3, 0)))
+    this.character.position.copy(this.playerCapsule.start.clone().sub(this.capsuleDiffToPlayer))
     this.camera.position.copy(diff.add(this.character.position))
     this.orbitControls.target = this.playerCapsule.end
     this.velocity.set(0, 0, 0)
 
     let nextAction: string
+    // if(!this.playerOnFloor && this.jumping) {
+    //   nextAction = 'jump'
+    // } else 
     if (this.control.keyState['KeyW'] || this.control.keyState['KeyS'] || this.control.keyState['KeyA'] || this.control.keyState['KeyD']) {
       nextAction = 'running'
     } else {
@@ -198,7 +211,7 @@ export class Player {
     const result = octree.capsuleIntersect(this.playerCapsule)
     this.playerOnFloor = false
     if (result) {
-      this.playerOnFloor = result.normal.y > 0
+      this.playerOnFloor = result.normal.y >= 0
       if (!this.playerOnFloor) {
         this.velocity.addScaledVector(
           result.normal,
@@ -212,7 +225,7 @@ export class Player {
   /**
    * @description: 相机碰撞处理
    * @return {void}
-   */  
+   */
   private cameraCollision() {
 
   }
@@ -222,10 +235,39 @@ export class Player {
    * @return {void}
    */
   private onKeyUp() {
-    if (Object.values(this.control.keyState).every((b) => !b) && this.currentAction !== 'idle') {
-      this.currentAction = 'idle'
-      this.animationControl.startAnimation(this.character, this.currentAction)
+    // if (Object.values(this.control.keyState).every((b) => !b)) {
+    //   this.animationControl.startAnimation(this.character, 'idle')
+    // }
+  }
+
+  private onKeyDown([keyCode]: string[]) {
+    if (keyCode === 'Space') {
+      this.jump()
     }
+  }
+
+  /**
+   * @description: 跳跃
+   * @return {void}
+   */
+  private jump() {
+    if (this.playerOnFloor) {
+      this.velocity.y = this.jumpHeight
+    }
+  }
+
+  reset(player: Object3D) {
+    this.playerCapsule.set(...capsuleParams)
+    this.playerCapsule.translate(this.initialPositin)
+    player.position.copy(this.playerCapsule.start.clone().sub(this.capsuleDiffToPlayer))
+    player.rotation.y = Math.PI / 2
+    this.camera.position.set(-4, 1.6, 11.4)
+    this.camera.updateProjectionMatrix()
+    this.orbitControls.target = this.playerCapsule.end
+
+    this.orbitControls.minDistance = 1
+    this.orbitControls.maxDistance = 5
+    this.orbitControls.maxPolarAngle = Math.PI / 2
   }
 
   /**
@@ -234,7 +276,7 @@ export class Player {
    * @return {void}
    */
   update(delta: number, octree: Octree) {
-    if (!this.character) return
+    if (!this.character || !octree) return
     this.updatePlayer(delta, octree)
     this.animationControl.mixer?.update(delta)
   }

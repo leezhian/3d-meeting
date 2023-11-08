@@ -26,8 +26,8 @@ export class World {
 
   private emitter: Emitter
   private orbitControls: OrbitControls
-  private player: Player
-  private environment: Meeting
+  player: Player
+  environment: Meeting
   private loader: Loader
   private control: Control
 
@@ -55,10 +55,10 @@ export class World {
   }
 
   update(delta: number) {
+    this.environment.update(delta)
     // 避免初始加载时多余的性能消耗和人物碰撞错误处理
-    if(this.environment.octree) {
+    if(this.environment.octree && this.environment.loaded) {
       this.player.update(delta, this.environment.octree)
     }
-    this.environment.update(delta)
   }
 }

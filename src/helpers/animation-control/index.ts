@@ -79,7 +79,7 @@ export class AnimationControl {
 
       const animationAction = (this.mixer as THREE.AnimationMixer).clipAction(this.animations[animName])
       animationAction.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
-      animationAction.play()
+      animationAction.play().fadeIn(0.1)
     })
 
     return this.mixer
