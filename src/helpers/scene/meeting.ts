@@ -49,8 +49,10 @@ export class Meeting {
 
       // 开启阴影
       gltf.scene.traverse(child => {
-        child.castShadow = true
-        child.receiveShadow = true
+        if ((child as Mesh).isMesh) {
+          child.castShadow = true
+          child.receiveShadow = true
+        }
 
         if (child.name === 'screen') {
           this.initScreen(child)
@@ -82,6 +84,7 @@ export class Meeting {
   private initSceneOtherEffects() {
     const ambientLight = new AmbientLight(0xffffff)
     const directionalLight = new DirectionalLight(0xffc766, 0.2)
+    directionalLight.castShadow = true
     directionalLight.shadow.mapSize.set(1024, 1024)
     directionalLight.shadow.camera.far = 15
     directionalLight.position.set(-8, 6, 0)
