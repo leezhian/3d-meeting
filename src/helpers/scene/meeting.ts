@@ -3,7 +3,7 @@
  * @Date: 2023-11-06 23:01:04
  * @Description: 会议场景
  */
-import { Scene, AmbientLight, DirectionalLight, Object3D, Mesh, MeshStandardMaterial, VideoTexture, BufferGeometry, PerspectiveCamera, Vector2, Raycaster, type NormalBufferAttributes, PlaneGeometry, Group, Color, Vector3, Shape, ShapeGeometry } from 'three'
+import { Scene, AmbientLight, DirectionalLight, Object3D, Mesh, MeshStandardMaterial, VideoTexture, BufferGeometry, PerspectiveCamera, Vector2, Raycaster, type NormalBufferAttributes, PlaneGeometry, Group, Color, Vector3, Shape, ShapeGeometry, TextureLoader, MeshBasicMaterial, RepeatWrapping } from 'three'
 import { Octree } from 'three/examples/jsm/math/Octree.js'
 import { MeshBVH, StaticGeometryGenerator, type MeshBVHOptions } from 'three-mesh-bvh'
 import { Core } from '@/helpers/core'
@@ -73,6 +73,14 @@ export class Meeting {
           this.initScreen(child)
           this.screen = child as Mesh
           this.createVideoControl()
+        } else if (child.name === 'navmesh_booleans_applied') {
+          const floor = child as Mesh<PlaneGeometry, MeshBasicMaterial>
+          floor.material.color.set(0xA8A69D)
+          const floorTexture = new TextureLoader().load('/texture/1meeting_floor.png')
+          floorTexture.wrapS = RepeatWrapping;
+          floorTexture.wrapT = RepeatWrapping
+          floorTexture.repeat.set(30, 30)
+          floor.material.map = floorTexture
         }
       })
 
