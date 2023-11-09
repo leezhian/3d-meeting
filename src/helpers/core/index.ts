@@ -10,14 +10,14 @@ import { World } from '@/helpers/world'
 import { Control } from '@/helpers/control'
 import { Loader } from '@/helpers/loader'
 
-export interface CanvasInfo {
+export interface deviceInfo {
   width: number
   height: number
   pixelRatio: number
 }
 
 export class Core {
-  private canvasInfo: CanvasInfo
+  static deviceInfo: deviceInfo
   scene: Scene
   renderer: WebGLRenderer
   camera: PerspectiveCamera
@@ -30,7 +30,7 @@ export class Core {
   loader: Loader
 
   constructor() {
-    this.canvasInfo = {
+    Core.deviceInfo = {
       width: window.innerWidth,
       height: window.innerHeight,
       pixelRatio: Math.min(window.devicePixelRatio, 2)
@@ -66,11 +66,11 @@ export class Core {
 
   /**
    * @description: 获取canvas信息
-   * @return {CanvasInfo}
+   * @return {deviceInfo}
    */  
-  getCanvasRect() {
-    return this.canvasInfo
-  }
+  // getCanvasRect() {
+  //   return this.deviceInfo
+  // }
 
   /**
    * @description: 初始话场景
@@ -86,7 +86,7 @@ export class Core {
    */  
   initCamera() {
     this.camera.fov = 75
-    this.camera.aspect = this.canvasInfo.width / this.canvasInfo.height
+    this.camera.aspect = Core.deviceInfo.width / Core.deviceInfo.height
     // this.camera.position.set(0, 3, 10)
     this.camera.updateProjectionMatrix()
   }
@@ -98,8 +98,8 @@ export class Core {
   initRenderer() {
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = VSMShadowMap
-    this.renderer.setSize(this.canvasInfo.width, this.canvasInfo.height)
-    this.renderer.setPixelRatio(this.canvasInfo.pixelRatio)
+    this.renderer.setSize(Core.deviceInfo.width, Core.deviceInfo.height)
+    this.renderer.setPixelRatio(Core.deviceInfo.pixelRatio)
     document.querySelector('#app')?.appendChild(this.renderer.domElement)
   }
 
@@ -117,16 +117,16 @@ export class Core {
    * @return {void}
    */  
   private resizeHander() {
-    this.canvasInfo.width = window.innerWidth
-    this.canvasInfo.height = window.innerHeight
-    this.canvasInfo.pixelRatio = Math.min(window.devicePixelRatio, 2)
+    Core.deviceInfo.width = window.innerWidth
+    Core.deviceInfo.height = window.innerHeight
+    Core.deviceInfo.pixelRatio = Math.min(window.devicePixelRatio, 2)
     
-    this.camera.aspect = this.canvasInfo.width / this.canvasInfo.height
+    this.camera.aspect = Core.deviceInfo.width / Core.deviceInfo.height
     this.camera.updateProjectionMatrix()
-    this.renderer.setSize(this.canvasInfo.width, this.canvasInfo.height)
-    this.renderer?.setPixelRatio(this.canvasInfo.pixelRatio)
+    this.renderer.setSize(Core.deviceInfo.width, Core.deviceInfo.height)
+    this.renderer?.setPixelRatio(Core.deviceInfo.pixelRatio)
 
-    this.emitter.emit('resize', this.canvasInfo)
+    this.emitter.emit('resize', Core.deviceInfo)
   }
 
   private bindEvents() {
@@ -135,7 +135,6 @@ export class Core {
 
   private unbindEvents() {
     window.removeEventListener('resize', this.resizeHander.bind(this))
-
   }
 
   /**
@@ -144,6 +143,7 @@ export class Core {
    */  
   destory() {
     this.control.destory()
+    this.world.destory()
     this.emitter.clear()
     this.unbindEvents()
   }

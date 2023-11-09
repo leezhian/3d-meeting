@@ -300,8 +300,6 @@ export class Player {
   reset(player: Object3D) {
     this.playerCapsule.set(...capsuleParams)
     this.playerCapsule.translate(this.initialPositin)
-    console.log(this.playerCapsule.start.clone().sub(this.capsuleDiffToPlayer));
-    console.log(this.playerCapsule.start);
     
     player.position.copy(this.playerCapsule.start.clone().sub(this.capsuleDiffToPlayer))
     player.rotation.y = Math.PI / 2

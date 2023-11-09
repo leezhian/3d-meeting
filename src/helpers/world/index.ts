@@ -49,6 +49,7 @@ export class World {
     })
     this.environment = new Meeting({
       scene: this.scene,
+      camera: this.camera,
       loader: this.loader,
       emitter: this.emitter
     })
@@ -60,5 +61,13 @@ export class World {
     if(this.environment.octree && this.environment.bvh && this.environment.loaded) {
       this.player.update(delta, this.environment.octree, this.environment.bvh)
     }
+  }
+
+  /**
+   * @description: 销毁
+   * @return {void}
+   */  
+  destory() {
+    this.environment.destory()
   }
 }
