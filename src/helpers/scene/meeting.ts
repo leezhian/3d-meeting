@@ -3,7 +3,7 @@
  * @Date: 2023-11-06 23:01:04
  * @Description: 会议场景
  */
-import { Scene, AmbientLight, DirectionalLight, Object3D, Mesh, MeshStandardMaterial, VideoTexture, BufferGeometry, PerspectiveCamera, Vector2, Raycaster, type NormalBufferAttributes, PlaneGeometry, Group, Color, Vector3 } from 'three'
+import { Scene, AmbientLight, DirectionalLight, Object3D, Mesh, MeshStandardMaterial, VideoTexture, BufferGeometry, PerspectiveCamera, Vector2, Raycaster, type NormalBufferAttributes, PlaneGeometry, Group, Color, Vector3, Shape, ShapeGeometry } from 'three'
 import { Octree } from 'three/examples/jsm/math/Octree.js'
 import { MeshBVH, StaticGeometryGenerator, type MeshBVHOptions } from 'three-mesh-bvh'
 import { Core } from '@/helpers/core'
@@ -18,6 +18,9 @@ export interface MeetingOptions {
   camera: PerspectiveCamera
 }
 
+const MinusReg = /^minus$/i
+const PlusReg = /^plus$/i
+
 export class Meeting {
   private scene: Scene
   private emitter: Emitter
@@ -29,9 +32,12 @@ export class Meeting {
   bvh?: Mesh
   loaded = false
   private mouse = new Vector2() // 鼠标
-  private mouseRaycaster = new Raycaster() 
+  private mouseRaycaster = new Raycaster()
+
   private screen?: Mesh
-  private videoControl?: Group
+  private videoMinusControl?: Mesh<PlaneGeometry, MeshStandardMaterial> // 减少音量
+  private videoPlusControl?: Mesh<ShapeGeometry, MeshStandardMaterial> // 加大音量
+  private videoControl?: Group // 视频控件
 
   constructor({ scene, emitter, loader, camera }: MeetingOptions) {
     this.scene = scene
@@ -132,8 +138,12 @@ export class Meeting {
     return video
   }
 
+  /**
+   * @description: 创建视频控制器
+   * @return {void}
+   */
   private createVideoControl() {
-    const w = 0.3
+    const w = 0.4
     const h = 0.1
     const color = new Color(0xDCDCDC)
     // 横
@@ -156,28 +166,47 @@ export class Meeting {
       )
     }
 
+    // 加号
+    function createPlus() {
+      const plusShape = new Shape()
+      const halfW = w / 2
+      const halfH = h / 2
+      plusShape.moveTo(-halfW, halfH)
+      plusShape.lineTo(-halfH, halfH)
+      plusShape.lineTo(-halfH, halfW)
+      plusShape.lineTo(halfH, halfW)
+      plusShape.lineTo(halfH, halfH)
+      plusShape.lineTo(halfW, halfH)
+      plusShape.lineTo(halfW, -halfH)
+      plusShape.lineTo(halfH, -halfH)
+      plusShape.lineTo(halfH, -halfW)
+      plusShape.lineTo(-halfH, -halfW)
+      plusShape.lineTo(-halfH, -halfH)
+      plusShape.lineTo(-halfW, -halfH)
+
+      return new Mesh(
+        new ShapeGeometry(plusShape),
+        new MeshStandardMaterial({
+          color
+        })
+      )
+    }
+
     this.videoControl = new Group()
-    const minus = createHPlane()
-    minus.position.set(-0.8, 0, 0)
-    minus.name = 'minus'
-    this.videoControl.add(minus)
+    this.videoMinusControl = createHPlane()
+    this.videoMinusControl.position.set(-1.2, 0, 0)
+    this.videoMinusControl.name = 'minus'
+    this.videoControl.add(this.videoMinusControl)
     for (let index = 0; index < 5; index++) {
       const p = createVPlane()
-      p.position.set((index - 2) * 0.2, 0, 0)
+      p.position.set((index - 2) * 0.3, 0, 0)
       this.videoControl.add(p)
     }
 
-    const plus = new Group()
-    plus.name = 'plus'
-    const plusH = createHPlane()
-    plusH.name = 'plusH'
-    const plusV = createVPlane()
-    plusV.name = 'plusV'
-    plus.add(plusH)
-    plus.add(plusV)
-    plus.position.set(0.8, 0, 0)
-    this.videoControl.add(plus)
-    
+    this.videoPlusControl = createPlus()
+    this.videoPlusControl.name = 'plus'
+    this.videoPlusControl.position.set(1.2, 0, 0)
+    this.videoControl.add(this.videoPlusControl)
     this.videoControl.position.add(new Vector3(0, 2, -8.4))
     this.scene.add(this.videoControl)
   }
@@ -211,38 +240,62 @@ export class Meeting {
   private onMouseMove(event: MouseEvent) {
     this.mouse.x = (event.clientX / Core.deviceInfo.width) * 2 - 1
     this.mouse.y = -(event.clientY / Core.deviceInfo.height) * 2 + 1
-    // console.log(this.mouse)
   }
 
   private onClick() {
-    if(!this.videoControl || !this.video) return
+    if (!this.videoControl || !this.video) return
     // 音量调节
-    const intersects = this.mouseRaycaster.intersectObjects([this.videoControl.getObjectByName('minus')!, this.videoControl.getObjectByName('plus')!])
-    if (intersects.length) {
-      const o = intersects[0].object
-      if(/minus/i.test(o.name)) {
-        this.video.volume = Math.max((this.video?.volume ?? 0) - 0.2, 0)
-      } else if(/plus/i.test(o.name)) {
-        this.video.volume = Math.min((this.video?.volume ?? 0) + 0.2, 1)
-      }
+    const intersects = this.mouseRaycaster.intersectObjects([this.videoMinusControl!, this.videoPlusControl!])
+
+    if (!intersects.length) return
+    // 处理视频控件点击
+    const o = intersects[0].object
+    let volume = this.video.volume
+    if (/minus/i.test(o.name)) {
+      volume = Math.max((this.video?.volume ?? 0) - 0.2, 0)
+    } else if (/plus/i.test(o.name)) {
+      volume = Math.min((this.video?.volume ?? 0) + 0.2, 1)
     }
+
+    if(volume === this.video.volume) return
+    this.video.volume = volume
+    const endIndex = volume / 0.2
+    let index = 1
+    this.videoControl.traverse(child => {
+      if ((child as Mesh).isMesh && !MinusReg.test(child.name) && !PlusReg.test(child.name)) {
+        (child as Mesh<PlaneGeometry, MeshStandardMaterial>).material.color.set(index <= endIndex ? 0x666666 : 0xDCDCDC)
+        index++
+      }
+    })
   }
 
   /**
    * @description: 鼠标捕捉
    * @return {void}
-   */  
+   */
   private mouseCatch() {
-    if(!this.screen) return
-    if(this.mouse.x && this.mouse.y) {
+    if (!this.screen || !this.videoControl) return
+    if (this.mouse.x && this.mouse.y) {
       this.mouseRaycaster.setFromCamera(this.mouse, this.camera)
     }
 
-    const intersects = this.mouseRaycaster.intersectObject(this.screen)
-    if(intersects.length) {
-      // TODO 显示控件
+    const intersects = this.mouseRaycaster.intersectObjects([this.screen, this.videoMinusControl!, this.videoPlusControl!])
+    if (intersects.length) {
+      // 处理控件 hover
+      this.videoControl.visible = true
+      this.videoMinusControl!.material.color.set(0xDCDCDC)
+      this.videoPlusControl!.material.color.set(0xDCDCDC)
+      intersects.forEach(item => {
+        if (MinusReg.test(item.object.name)) {
+          this.videoMinusControl!.material.color.set(0x666666)
+        } else if (PlusReg.test(item.object.name)) {
+          this.videoPlusControl!.material.color.set(0x666666)
+        }
+      })
+    } else {
+      this.videoControl.visible = false
     }
-    
+
   }
 
   update(delta: number) {
