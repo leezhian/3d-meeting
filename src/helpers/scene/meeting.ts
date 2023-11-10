@@ -108,11 +108,15 @@ export class Meeting {
    */
   private initSceneOtherEffects() {
     const ambientLight = new AmbientLight(0xffffff)
-    const directionalLight = new DirectionalLight(0xffc766, 0.2)
+    const directionalLight = new DirectionalLight(0xffc766, 0.6)
     directionalLight.castShadow = true
     directionalLight.shadow.mapSize.set(1024, 1024)
     directionalLight.shadow.camera.far = 15
-    directionalLight.position.set(-8, 6, 0)
+    directionalLight.shadow.camera.top = 30
+    directionalLight.shadow.camera.right = 30
+    directionalLight.shadow.camera.bottom = -30
+    directionalLight.shadow.camera.left = -30
+    directionalLight.position.set(-8, 5, 0)
     this.scene.add(ambientLight, directionalLight)
   }
 

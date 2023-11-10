@@ -3,7 +3,7 @@
  * @Date: 2023-11-06 19:10:29
  * @Description: 基础核心类
  */
-import { Scene, Clock, WebGLRenderer, PerspectiveCamera, Color, VSMShadowMap } from 'three'
+import { Scene, Clock, WebGLRenderer, PerspectiveCamera, Color, VSMShadowMap, SRGBColorSpace, ACESFilmicToneMapping } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { Emitter } from '@/helpers/emitter'
 import { World } from '@/helpers/world'
@@ -87,7 +87,6 @@ export class Core {
   initCamera() {
     this.camera.fov = 75
     this.camera.aspect = Core.deviceInfo.width / Core.deviceInfo.height
-    // this.camera.position.set(0, 3, 10)
     this.camera.updateProjectionMatrix()
   }
 
@@ -98,6 +97,8 @@ export class Core {
   initRenderer() {
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = VSMShadowMap
+    this.renderer.outputColorSpace = SRGBColorSpace;
+		this.renderer.toneMapping = ACESFilmicToneMapping;
     this.renderer.setSize(Core.deviceInfo.width, Core.deviceInfo.height)
     this.renderer.setPixelRatio(Core.deviceInfo.pixelRatio)
     document.querySelector('#app')?.appendChild(this.renderer.domElement)

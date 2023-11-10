@@ -56,6 +56,7 @@ export class Player {
   private character!: Group<Object3DEventMap>
   private forceAction: string = '' // 玩家的强制动作（玩家主动触发）
   private currentAction: string = 'idle' // 玩家当前动作
+  private jumping = false
   private playerCapsule!: Capsule
   private initialPositin!: Vector3 // 初始位置
   private capsuleDiffToPlayer = new Vector3(0, capsuleParams[0].y, 0) // 胶囊体与玩家模型的位置差值
@@ -88,6 +89,7 @@ export class Player {
    */
   private async load() {
     const player = await this.loader.fbxLoader.loadAsync('/modals/girl.fbx')
+    player.castShadow = true
     player.scale.set(0.01, 0.01, 0.01)
     this.playerCapsule = new Capsule(...capsuleParams)
     // this.playerCapsule.translate(this.initialPositin)
@@ -197,10 +199,9 @@ export class Player {
 
     if(this.forceAction !== '') return
     let nextAction: string
-    // if(!this.playerOnFloor && this.jumping) {
-    //   nextAction = 'jump'
-    // } else 
-    if (this.control.keyState['KeyW'] || this.control.keyState['KeyS'] || this.control.keyState['KeyA'] || this.control.keyState['KeyD']) {
+    if(this.jumping) {
+      nextAction = 'jump'
+    } else if (this.control.keyState['KeyW'] || this.control.keyState['KeyS'] || this.control.keyState['KeyA'] || this.control.keyState['KeyD']) {
       nextAction = 'running'
     } else {
       nextAction = 'idle'      
@@ -222,6 +223,7 @@ export class Player {
     this.playerOnFloor = false
     if (result) {
       this.playerOnFloor = result.normal.y >= 0
+      this.jumping = this.playerOnFloor ? false : this.jumping
       if (!this.playerOnFloor) {
         // normal 是碰撞的单位方向向量
         this.velocity.addScaledVector(
@@ -275,6 +277,7 @@ export class Player {
    */
   private jump() {
     if (this.playerOnFloor) {
+      this.jumping = true
       this.velocity.y = this.jumpHeight
     }
   }
@@ -308,7 +311,7 @@ export class Player {
     this.orbitControls.target = this.playerCapsule.end
 
     this.orbitControls.minDistance = 1
-    this.orbitControls.maxDistance = 5
+    // this.orbitControls.maxDistance = 5
     // remark 后期应交由 camera 碰撞处理
     this.orbitControls.maxPolarAngle = Math.PI / 2
   }
