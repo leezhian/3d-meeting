@@ -311,7 +311,7 @@ export class Player {
     this.orbitControls.target = this.playerCapsule.end
 
     this.orbitControls.minDistance = 1
-    // this.orbitControls.maxDistance = 5
+    this.orbitControls.maxDistance = 5
     // remark 后期应交由 camera 碰撞处理
     this.orbitControls.maxPolarAngle = Math.PI / 2
   }
