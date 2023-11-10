@@ -9,6 +9,7 @@ import { MeshBVH, StaticGeometryGenerator, type MeshBVHOptions } from 'three-mes
 import { Core } from '@/helpers/core'
 import type { Emitter } from '@/helpers/emitter'
 import type { Loader } from '@/helpers/loader'
+import { ON_SCENE_LOADED } from '@/helpers/constants'
 import { AnimationControl } from '@/helpers/animation-control'
 
 export interface MeetingOptions {
@@ -54,8 +55,9 @@ export class Meeting {
   private async load() {
     await this.loadScene()
     this.initSceneOtherEffects()
-    // TODO 通知加载完毕
+    // 通知加载完毕
     this.loaded = true
+    this.emitter.emit(ON_SCENE_LOADED)
   }
 
   private async loadScene() {
@@ -76,7 +78,7 @@ export class Meeting {
         } else if (child.name === 'navmesh_booleans_applied') {
           const floor = child as Mesh<PlaneGeometry, MeshBasicMaterial>
           floor.material.color.set(0xA8A69D)
-          const floorTexture = new TextureLoader().load('/texture/1meeting_floor.png')
+          const floorTexture = new TextureLoader().load('/texture/meeting_floor.png')
           floorTexture.wrapS = RepeatWrapping;
           floorTexture.wrapT = RepeatWrapping
           floorTexture.repeat.set(30, 30)

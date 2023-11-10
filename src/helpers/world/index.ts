@@ -59,7 +59,7 @@ export class World {
     this.environment.update(delta)
     // 避免初始加载时多余的性能消耗和人物碰撞错误处理
     if(this.environment.octree && this.environment.bvh && this.environment.loaded) {
-      this.player.update(delta, this.environment.octree, this.environment.bvh)
+      this.player.update(delta, this.environment.octree)
     }
   }
 

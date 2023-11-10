@@ -3,7 +3,7 @@
 * @Date: 2023-11-06 23:00:38
 * @Description: 玩家
 */
-import { PerspectiveCamera, Scene, Vector3, Group, Object3DEventMap, Object3D, Mesh, Raycaster } from 'three'
+import { PerspectiveCamera, Scene, Vector3, Group, Object3DEventMap, Object3D } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { Capsule } from 'three/examples/jsm/math/Capsule.js'
 import { Octree } from 'three/examples/jsm/math/Octree.js'
@@ -60,7 +60,7 @@ export class Player {
   private playerCapsule!: Capsule
   private initialPositin!: Vector3 // 初始位置
   private capsuleDiffToPlayer = new Vector3(0, capsuleParams[0].y, 0) // 胶囊体与玩家模型的位置差值
-  private cameraRaycaster: Raycaster = new Raycaster()
+  // private cameraRaycaster: Raycaster = new Raycaster()
 
   constructor(options: PlayerOptions) {
     Object.assign(options, defaultParams)
@@ -175,7 +175,7 @@ export class Player {
    * @param {Octree} octree
    * @return {void}
    */
-  private updatePlayer(delta: number, octree: Octree, bvh: Mesh) {
+  private updatePlayer(delta: number, octree: Octree) {
     // 处理人物下落
     let damping = Math.exp(-4 * delta) - 1 // 模拟阻尼
     if (!this.playerOnFloor) {
@@ -239,20 +239,20 @@ export class Player {
    * @description: 相机碰撞处理
    * @return {void}
    */
-  private cameraCollision(bvh: Object3D[]) {
-    const ray_direction = new Vector3()
-    ray_direction.subVectors(this.camera.position, this.character.position).normalize();
-    // 设置镜头光线
-    this.cameraRaycaster.set(this.character.position, ray_direction);
-    const intersects = this.cameraRaycaster.intersectObjects(bvh);
-    if (intersects.length) {
-      // 找到碰撞点后还需要往前偏移一点，不然还是可能会看到穿模
-      const offset = new Vector3() // 定义一个向前移动的偏移量
-      offset.copy(ray_direction).multiplyScalar(-0.5) // 计算偏移量，这里的distance是想要向前移动的距离
-      const new_position = new Vector3().addVectors(intersects[0].point, offset) // 计算新的相机位置
-      this.camera.position.copy(new_position)
-    }
-  }
+  // private cameraCollision(bvh: Object3D[]) {
+  //   const ray_direction = new Vector3()
+  //   ray_direction.subVectors(this.camera.position, this.character.position).normalize();
+  //   // 设置镜头光线
+  //   this.cameraRaycaster.set(this.character.position, ray_direction);
+  //   const intersects = this.cameraRaycaster.intersectObjects(bvh);
+  //   if (intersects.length) {
+  //     // 找到碰撞点后还需要往前偏移一点，不然还是可能会看到穿模
+  //     const offset = new Vector3() // 定义一个向前移动的偏移量
+  //     offset.copy(ray_direction).multiplyScalar(-0.5) // 计算偏移量，这里的distance是想要向前移动的距离
+  //     const new_position = new Vector3().addVectors(intersects[0].point, offset) // 计算新的相机位置
+  //     this.camera.position.copy(new_position)
+  //   }
+  // }
 
   /**
    * @description: 按钮放开
@@ -321,9 +321,9 @@ export class Player {
    * @param {number} delta
    * @return {void}
    */
-  update(delta: number, octree: Octree, bvh: Mesh) {
+  update(delta: number, octree: Octree) {
     if (!this.character || !octree) return
-    this.updatePlayer(delta, octree, bvh)
+    this.updatePlayer(delta, octree)
     this.animationControl.mixer?.update(delta)
   }
 }
